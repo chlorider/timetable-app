@@ -1,153 +1,84 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Student Timetable App</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin: 0;
-      padding: 20px;
-      background: #f4f4f4;
-    }
-    h1 { margin-bottom: 10px; }
-
-    .timetable-container {
-      overflow: auto;
-      border: 1px solid #ccc;
-      margin-bottom: 20px;
-      display: inline-block;
-      max-width: 95vw;
-      max-height: 60vh;
-    }
-
-    table {
-      border-collapse: collapse;
-      min-width: 600px;
-    }
-
-    th, td {
-      border: 1px solid #aaa;
-      padding: 8px;
-      min-width: 80px;
-      text-align: center;
-    }
-
-    .free { background-color: #d4edda; }
-    .busy { background-color: #f8d7da; }
-
-    button {
-      padding: 10px 20px;
-      font-size: 16px;
-      margin: 10px;
-    }
-
-    .results {
-      margin-top: 20px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timetable App with OCR</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.0.2/tesseract.min.js"></script>
+    <style>
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid black; padding: 10px; text-align: center; }
+        input[type='checkbox'] { transform: scale(1.5); }
+    </style>
 </head>
 <body>
+    <h2>Upload Timetable Image</h2>
+    <input type="file" id="imageUpload" accept="image/png, image/jpeg">
+    <br><br>
+    <h2>Timetable</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Time Slot</th>
+                <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th>
+            </tr>
+        </thead>
+        <tbody id="timetableBody">
+            <script>
+                const timeSlots = ["8:30", "9:30", "10:30", "11:30", "12:30", "13:30", "14:30", "15:30", "16:30", "17:30"];
+                let tbody = document.getElementById('timetableBody');
+                timeSlots.forEach(time => {
+                    let row = `<tr><td>${time}</td>`;
+                    for (let i = 0; i < 5; i++) {
+                        row += `<td><input type='checkbox' class='lesson'></td>`;
+                    }
+                    row += `</tr>`;
+                    tbody.innerHTML += row;
+                });
+            </script>
+        </tbody>
+    </table>
+    
+    <script>
+        document.getElementById('imageUpload').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function() {
+                    Tesseract.recognize(reader.result, 'eng')
+                        .then(({ data: { text } }) => processOCR(text));
+                };
+                reader.readAsDataURL(file);
+            }
+        });
 
-<h1>Student Timetable App</h1>
-
-<button onclick="addStudent()">Add Student</button>
-<button onclick="findCommonFreeSlots()">Find Common Free Slots</button>
-
-<div id="students"></div>
-
-<div class="results">
-  <h2>Common Free Slots</h2>
-  <div class="timetable-container">
-    <table id="resultTable"></table>
-  </div>
-</div>
-
-<script>
-  const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-  const timeLabels = ['8:30', '9:30', '10:30', '11:30', '12:30', '13:30', '14:30', '15:30', '16:30', '17:30'];
-  const students = [];
-
-  function createTimetable(studentId) {
-    let html = `<div class="timetable-container"><h3>Student ${studentId + 1}</h3><table>`;
-    html += "<tr><th>Time</th>";
-    for (const day of dayLabels) html += `<th>${day}</th>`;
-    html += "</tr>";
-
-    for (let t = 0; t < timeLabels.length; t++) {
-      html += `<tr><td>${timeLabels[t]}</td>`;
-      for (let d = 0; d < dayLabels.length; d++) {
-        html += `<td><input type="checkbox" data-student="${studentId}" data-day="${d}" data-time="${t}"></td>`;
-      }
-      html += "</tr>";
-    }
-
-    html += "</table></div>";
-    return html;
-  }
-
-  function addStudent() {
-    const studentId = students.length;
-    students.push(Array(5).fill(0).map(() => Array(10).fill(0))); // 5 days x 10 timeslots
-    document.getElementById('students').insertAdjacentHTML('beforeend', createTimetable(studentId));
-  }
-
-  function findCommonFreeSlots() {
-    // Reset data
-    for (let s = 0; s < students.length; s++) {
-      for (let d = 0; d < 5; d++) {
-        for (let t = 0; t < 10; t++) {
-          students[s][d][t] = 0;
+        function processOCR(text) {
+            const lines = text.split('\n');
+            const dayMapping = { 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5 };
+            
+            lines.forEach(line => {
+                const match = line.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
+                if (match) {
+                    const startTime = match[1], endTime = match[2];
+                    for (const day in dayMapping) {
+                        if (line.includes(day)) {
+                            markLessons(dayMapping[day], startTime, endTime);
+                        }
+                    }
+                }
+            });
         }
-      }
-    }
 
-    // Read input values
-    const inputs = document.querySelectorAll('input[type="checkbox"]');
-    inputs.forEach(input => {
-      if (input.checked) {
-        const student = parseInt(input.dataset.student);
-        const day = parseInt(input.dataset.day);
-        const time = parseInt(input.dataset.time);
-        students[student][day][time] = 1; // busy
-      }
-    });
-
-    // Compute common free slots
-    const result = Array(5).fill(0).map(() => Array(10).fill(0));
-    for (let d = 0; d < 5; d++) {
-      for (let t = 0; t < 10; t++) {
-        let isFreeForAll = true;
-        for (let s = 0; s < students.length; s++) {
-          if (students[s][d][t] === 1) {
-            isFreeForAll = false;
-            break;
-          }
+        function markLessons(dayIndex, startTime, endTime) {
+            const checkboxes = document.querySelectorAll('tbody tr');
+            let marking = false;
+            checkboxes.forEach(row => {
+                const time = row.cells[0].textContent;
+                if (time === startTime) marking = true;
+                if (marking) row.cells[dayIndex].querySelector('input').checked = true;
+                if (time === endTime) marking = false;
+            });
         }
-        result[d][t] = isFreeForAll ? 0 : 1; // 0 = free, 1 = busy
-      }
-    }
-
-    displayResult(result);
-  }
-
-  function displayResult(result) {
-    const table = document.getElementById('resultTable');
-    table.innerHTML = "<tr><th>Time</th>" + dayLabels.map(d => `<th>${d}</th>`).join('') + "</tr>";
-
-    for (let t = 0; t < 10; t++) {
-      let row = `<tr><td>${timeLabels[t]}</td>`;
-      for (let d = 0; d < 5; d++) {
-        const isFree = result[d][t] === 0;
-        row += `<td class="${isFree ? 'free' : 'busy'}">${isFree ? 'Free' : ''}</td>`;
-      }
-      row += "</tr>";
-      table.innerHTML += row;
-    }
-  }
-</script>
-
+    </script>
 </body>
 </html>
