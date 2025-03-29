@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Student Timetable App</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 100px repeat(5, 80px);
+      border: 1px solid #ccc;
+      overflow: auto;
+      margin-bottom: 20px;
+    }
+
+    .grid div, .header div {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: center;
+    }
+
+    .header {
+      display: grid;
+      grid-template-columns: 100px repeat(5, 80px);
+      font-weight: bold;
+      background-color: #f0f0f0;
+    }
+
+    .student-section {
+      margin-bottom: 30px;
+    }
+
+    button {
+      margin: 10px 0;
+      padding: 8px 12px;
+    }
+
+    .scroll-container {
+      overflow: auto;
+      max-width: 100%;
+    }
+
+    .title {
+      font-weight: bold;
+      font-size: 1.2em;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Student Timetable App</h1>
+
+  <button onclick="addStudent()">Add Student</button>
+  <button onclick="findCommonFreeSlots()">Find Common Free Slots</button>
+
+  <div id="studentsContainer"></div>
+
+  <div class="title">Common Free Slots</div>
+  <div id="commonSlotsContainer"></div>
+
+  <script>
+    const days = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+    const times = ["8:30", "9:30", "10:30", "11:30", "12:30", "13:30", "14:30", "15:30", "16:30", "17:30"];
+
+    let studentData = [];
+
+    function createGrid(studentIndex) {
+      const container = document.createElement('div');
+      container.classList.add('student-section');
+
+      const title = document.createElement('h3');
+      title.innerText = `Student ${studentIndex + 1}`;
+      container.appendChild(title);
+
+      const header = document.createElement('div');
+      header.classList.add('header');
+      header.innerHTML = `<div></div>` + days.map(d => `<div>${d}</div>`).join('');
+      container.appendChild(header);
+
+      const grid = document.createElement('div');
+      grid.classList.add('grid');
+      grid.dataset.index = studentIndex;
+
+      const schedule = Array(5).fill(0).map(() => Array(10).fill(0));
+
+      for (let i = 0; i < times.length; i++) {
+        grid.innerHTML += `<div>${times[i]}</div>`;
+        for (let j = 0; j < days.length; j++) {
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.dataset.day = j;
+          checkbox.dataset.time = i;
+
+          checkbox.addEventListener('change', function() {
+            schedule[j][i] = this.checked ? 1 : 0;
+          });
+
+          const cell = document.createElement('div');
+          cell.appendChild(checkbox);
+          grid.appendChild(cell);
+        }
+      }
+
+      studentData.push(schedule);
+      container.appendChild(grid);
+      document.getElementById('studentsContainer').appendChild(container);
+    }
+
+    function addStudent() {
+      createGrid(studentData.length);
+    }
+
+    function findCommonFreeSlots() {
+      const result = Array(5).fill(0).map(() => Array(10).fill(0));
+
+      for (let day = 0; day < 5; day++) {
+        for (let time = 0; time < 10; time++) {
+          let allFree = true;
+          for (let student of studentData) {
+            if (student[day][time] === 1) {
+              allFree = false;
+              break;
+            }
+          }
+          result[day][time] = allFree ? 0 : 1;
+        }
+      }
+
+      displayCommonSlots(result);
+    }
+
+    function displayCommonSlots(result) {
+      const container = document.getElementById('commonSlotsContainer');
+      container.innerHTML = '';
+
+      const header = document.createElement('div');
+      header.classList.add('header');
+      header.innerHTML = `<div></div>` + days.map(d => `<div>${d}</div>`).join('');
+      container.appendChild(header);
+
+      const grid = document.createElement('div');
+      grid.classList.add('grid');
+
+      for (let time = 0; time < times.length; time++) {
+        grid.innerHTML += `<div>${times[time]}</div>`;
+        for (let day = 0; day < days.length; day++) {
+          const cell = document.createElement('div');
+          cell.style.backgroundColor = result[day][time] === 0 ? '#c8f7c5' : '#f5b7b1';
+          cell.innerText = result[day][time] === 0 ? "Free" : "Busy";
+          grid.appendChild(cell);
+        }
+      }
+
+      container.appendChild(grid);
+    }
+  </script>
+</body>
+</html>
